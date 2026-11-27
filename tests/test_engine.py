@@ -34,7 +34,7 @@ def test_questions_stay_in_level_bounds():
     p = Picker(seed=2)
     for _ in range(300):
         q = p.next_question("add", 1, {}, 0)
-        assert q.answer <= 10
+        assert q.answer <= 10 and q.a >= 1 and q.b >= 1
         q = p.next_question("add", 3, {}, 0)
         assert q.answer <= 100
         q = p.next_question("mul", 2, {}, 0)

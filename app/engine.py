@@ -77,8 +77,8 @@ def _make(topic: str, level: int, rng: random.Random) -> Question:
     if topic == "add":
         lim = {1: 10, 2: 20, 3: 100, 4: 999}[level]
         if level <= 2:
-            a = rng.randint(0, lim)
-            b = rng.randint(0, lim - a)
+            a = rng.randint(1, lim - 1)
+            b = rng.randint(1, lim - a)
         elif level == 3:
             a, b = rng.randint(10, 80), rng.randint(5, 19)
             if a + b > 100:

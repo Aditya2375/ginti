@@ -124,7 +124,7 @@ async function startListening() {
   if (state.busy || !state.q) return;
   stopListening();
   const q = state.q;
-  $("status").textContent = S().listening;
+  $("status").textContent = "…";
   $("btn-mic").classList.add("live");
   $("t-speak").textContent = "■";
   try {
@@ -138,12 +138,20 @@ async function startListening() {
     const ws = new WebSocket(`${proto}//${location.host}/ws/listen`);
     ws.binaryType = "arraybuffer";
     state.ws = ws; state.audio = { stream, ctx };
+    let ready = false;
+    const queued = [];                       // keep the first words if the socket is a moment slow
+    node.port.onmessage = e => {
+      if (ready && ws.readyState === 1) ws.send(e.data);
+      else if (queued.length < 30) queued.push(e.data);
+    };
     ws.onopen = () => ws.send(JSON.stringify({ lang: q.lang, lo: q.lo, hi: q.hi }));
     ws.onmessage = ev => {
       const m = JSON.parse(ev.data);
       if (m.type === "ready") {
         state.t0 = performance.now();
-        node.port.onmessage = e => { if (ws.readyState === 1) ws.send(e.data); };
+        ready = true;
+        $("status").textContent = S().listening;
+        for (const chunk of queued.splice(0)) ws.send(chunk);
         state.listenTimer = setTimeout(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: "stop" })); }, LISTEN_MS);
       } else if (m.type === "partial") {
         $("status").textContent = `${S().listening} ${m.text}`;
