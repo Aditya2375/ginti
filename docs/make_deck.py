@@ -13,7 +13,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
-from reportlab.platypus import Frame, KeepInFrame, Paragraph, Table, TableStyle
+from reportlab.platypus import Frame, KeepInFrame, Paragraph, Spacer, Table, TableStyle
 
 pdfmetrics.registerFont(TTFont("Body", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
 pdfmetrics.registerFont(TTFont("Bold", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
@@ -34,7 +34,7 @@ def slide(title, items=None, table=None, widths=None, note=None, size=None, extr
 
 slide("Ginti: maths you answer out loud",
       ["Round 2 entry, theme: Inclusive education. Solo entry by Aditya Kulkarni.",
-       "A child hears a sum, says the answer in Hindi or English, and hears whether it was right. No typing, no reading, no account, no API keys.",
+       "A child hears a sum, says the answer in Hindi or English, and hears whether it was right. Answers are spoken, not typed. No password, no account, no API keys.",
        "Runs with one command: <b>docker compose up</b>. Code: github.com/Aditya2375/ginti (MIT)."], size=24)
 
 slide("The problem",
@@ -65,7 +65,7 @@ slide("What is built today (all of it is in the repo and tested)",
              ["Teacher page", "PIN protected: recent accuracy, median time on right answers, level per topic, most missed facts, CSV export, delete a learner"],
              ["Data", "SQLite on a Docker volume. Nickname, answers and timings only. No audio is kept"],
              ["Run", "docker compose up. No .env and no keys needed. Continuous integration builds it and runs a smoke test"]],
-      widths=[150, 760])
+      widths=[150, 730])
 
 slide("How it works",
       ["Browser: captures the microphone, converts it to 16 kHz mono audio and streams it over a WebSocket.",
@@ -80,11 +80,11 @@ slide("Evidence so far",
       table=[["Check", "Result"],
              ["508 synthetic clips (two voices per language), each decoded in every answer band the app can assign: 1,208 results", "1,197 correct (99.1%). Hindi 0 to 99: 532/536, Hindi 100 to 999: 52/56. English 0 to 99: 533/536, 100 to 999: 56/56. Known miss: Hindi 7 heard as 60 in wide bands"],
              ["Stress, 33 fixture clips (80 results)", "Clean 77, pitch +40%: 65, noise 10 dB: 73, noise 0 dB: 56. Synthetic, crude"],
-             ["Speed", "About 66 times faster than real time on one CPU core (1,012 s of audio in 15 s, one decode per clip)"],
-             ["Automated tests", "83 tests: numbers, question engine, database, every API route and its bad-input cases, fixture audio"],
+             ["Speed", "One run, one decoding process: 1,208 decodes, 2,337 s of audio in 33.7 s, about 69 times faster than real time"],
+             ["Automated tests", "86 tests: numbers, question engine, database, every API route and its bad-input cases, fixture audio"],
              ["Browser run", "One 10-question round in Chrome with recorded clips played into the microphone path: 10 of 10 scored right"],
              ["Docker", "CI builds the image, starts it with docker compose up, and recognises a spoken answer through it"]],
-      widths=[330, 580])
+      widths=[320, 560])
 SLIDES[-1]["note"] = "<b>Not yet tested:</b> real children, real phones, a classroom, background noise. The clips above are synthetic or recorded, not live speech from learners."
 
 slide("Market, with the assumptions shown",
@@ -100,11 +100,11 @@ slide("What it depends on, and what could go wrong",
              ["Browser microphone, AudioWorklet", "Free", "Needs localhost or HTTPS. A school network needs a TLS proxy"],
              ["Device text-to-speech voice", "Free", "If a phone has no Hindi voice, the question is shown but not read aloud. Not yet checked on real phones"],
              ["Docker base image, GitHub", "Free", "Standard container risk. No paid API anywhere in the runtime"]],
-      widths=[250, 70, 590])
+      widths=[250, 70, 560])
 
 slide("Cost to run",
       ["There is no per-answer fee and no key. The only cost is the machine it runs on.",
-       "Measured: one CPU core decodes about 66 times faster than real time. The code allows 8 simultaneous microphone sessions per server process.",
+       "Measured: one decoding process runs about 69 times faster than real time. The code allows 8 simultaneous microphone sessions per server process.",
        "Not measured: behaviour with 40 children on one server, or on a Raspberry Pi or a low-end phone. Those are the first things to test in a classroom.",
        "Data is a small SQLite file on a Docker volume. There is no backup yet."], size=21)
 
@@ -114,7 +114,7 @@ slide("Launch plan",
              ["Weeks 2 to 4", "One classroom pilot through a teacher or NGO contact. We have none yet", "Questions answered per child per week, teacher feedback"],
              ["Month 2", "TLS deployment guide, backup, a Hindi hundreds fix (the weakest case today)", "Hindi 100 to 999 accuracy above 98%"],
              ["Month 3", "Add division and simple word problems, more languages the Vosk project has models for", "Which language teachers ask for first"]],
-      widths=[120, 480, 310])
+      widths=[120, 470, 290])
 
 slide("Limits we state up front",
       ["Recognition numbers are from synthetic voices. Children will be harder.",
@@ -141,10 +141,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def pipeline(c):
-    steps = [("Child's browser", "microphone, 16 kHz audio, worklet"), ("WebSocket", "audio frames, 15 s limit, 2 per address"),
+    steps = [("Child's browser", "microphone, 16 kHz audio, worklet"), ("WebSocket", "audio frames, 15 s limit per socket"),
              ("Vosk (offline)", "grammar for this sum + 2 commands"), ("Number parser", "Hindi, Roman Hindi, English"),
              ("Server scores", "SQLite: attempt, box, level"), ("Spoken feedback", "device voice, teacher page")]
-    bw, bh, gap, y = 135, 110, 20, 270
+    bw, bh, gap, y = 128, 110, 18, 270
     x = 40
     for i, (a, b) in enumerate(steps):
         c.setFillColor(colors.white); c.setStrokeColor(GREEN); c.setLineWidth(2)
@@ -168,12 +168,16 @@ def pipeline(c):
 
 
 def screens(c):
-    for i, (img, cap) in enumerate([("child.png", "Child screen: sum, hear again, speak, or type"), ("teacher.png", "Teacher page: per-learner accuracy, time, level")]):
-        x = 40 + i * 450
-        c.drawImage(ImageReader(os.path.join(HERE, "img", img)), x, 95, width=430, height=430 * 370 / 780)
-        c.setFillColor(INK); c.setFont("Body", 13); c.drawString(x, 75, cap)
+    for i, (img, cap) in enumerate([("child.png", "Child screen: the sum, hear again, speak, or type"), ("teacher.png", "Teacher page: per-learner accuracy, time, level")]):
+        im = ImageReader(os.path.join(HERE, "img", img))
+        iw, ih = im.getSize()
+        h = 340.0
+        w = h * iw / ih
+        x = 40 + i * 450 + (430 - w) / 2 if w < 430 else 40 + i * 450
+        c.drawImage(im, x, 130, width=min(w, 430), height=h if w < 430 else 430 * ih / iw)
+        c.setFillColor(INK); c.setFont("Body", 13); c.drawString(40 + i * 450, 100, cap)
     c.setFillColor(MUTED); c.setFont("Body", 12)
-    c.drawString(40, 50, "Screenshots from the running app in Chrome with test data. The microphone emoji is missing here because the capture machine has no emoji font.")
+    c.drawString(40, 60, "Screenshots of the running app in Chrome with test data. In the child screen the "Listening" line was set by hand, because the capture machine has no microphone.")
 
 
 def draw(c, s, n):
@@ -192,6 +196,7 @@ def draw(c, s, n):
                                ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
         flow.append(t)
     if s["note"]:
+        flow.append(Spacer(1, 14))
         flow.append(Paragraph(s["note"], small))
     if s["extra"] == "pipeline":
         return pipeline(c)
