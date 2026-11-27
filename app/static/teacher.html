@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ginti · Teacher</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<header class="top"><a class="brand" href="/">Ginti <span lang="hi">गिनती</span></a><span>Teacher view</span></header>
+<main>
+<section class="card" id="gate">
+  <h1>Teacher PIN</h1>
+  <form id="pin-form">
+    <label for="pin">PIN (set as TEACHER_PIN, or printed in the server log at startup)</label>
+    <input id="pin" type="password" autocomplete="off" inputmode="numeric">
+    <p id="err" class="error" role="alert"></p>
+    <button class="mic" type="submit">Open</button>
+  </form>
+</section>
+<section class="card hidden" id="board">
+  <h1>Learners</h1>
+  <p class="note">Last 20 answers per learner. "Weak facts" are the ones missed most. Skipped questions are not counted as misses here.</p>
+  <table><thead><tr><th>Name</th><th>Answers</th><th>Recent</th><th>Median time (right)</th><th>Levels</th><th>Keeps missing</th></tr></thead>
+  <tbody id="rows"></tbody></table>
+  <p><button class="ghost small" id="csv">Download all answers (CSV)</button></p>
+</section>
+</main>
+<script src="/static/teacher.js" defer></script>
+</body></html>

@@ -1,0 +1,233 @@
+[
+ {
+  "file": "en_nee_020.wav",
+  "lang": "en",
+  "text": "fifteen",
+  "value": 15,
+  "command": null
+ },
+ {
+  "file": "en_nee_022.wav",
+  "lang": "en",
+  "text": "forty six",
+  "value": 46,
+  "command": null
+ },
+ {
+  "file": "en_nee_024.wav",
+  "lang": "en",
+  "text": "sixty four",
+  "value": 64,
+  "command": null
+ },
+ {
+  "file": "en_nee_026.wav",
+  "lang": "en",
+  "text": "ninety",
+  "value": 90,
+  "command": null
+ },
+ {
+  "file": "en_nee_028.wav",
+  "lang": "en",
+  "text": "one hundred and five",
+  "value": 105,
+  "command": null
+ },
+ {
+  "file": "en_nee_030.wav",
+  "lang": "en",
+  "text": "three hundred and sixty",
+  "value": 360,
+  "command": null
+ },
+ {
+  "file": "en_nee_032.wav",
+  "lang": "en",
+  "text": "skip",
+  "value": null,
+  "command": "skip"
+ },
+ {
+  "file": "en_pra_019.wav",
+  "lang": "en",
+  "text": "three",
+  "value": 3,
+  "command": null
+ },
+ {
+  "file": "en_pra_021.wav",
+  "lang": "en",
+  "text": "twenty nine",
+  "value": 29,
+  "command": null
+ },
+ {
+  "file": "en_pra_023.wav",
+  "lang": "en",
+  "text": "fifty eight",
+  "value": 58,
+  "command": null
+ },
+ {
+  "file": "en_pra_025.wav",
+  "lang": "en",
+  "text": "seventy seven",
+  "value": 77,
+  "command": null
+ },
+ {
+  "file": "en_pra_027.wav",
+  "lang": "en",
+  "text": "one hundred",
+  "value": 100,
+  "command": null
+ },
+ {
+  "file": "en_pra_029.wav",
+  "lang": "en",
+  "text": "one hundred and forty two",
+  "value": 142,
+  "command": null
+ },
+ {
+  "file": "en_pra_031.wav",
+  "lang": "en",
+  "text": "repeat",
+  "value": null,
+  "command": "repeat"
+ },
+ {
+  "file": "hi_mad_001.wav",
+  "lang": "hi",
+  "text": "सात",
+  "value": 7,
+  "command": null
+ },
+ {
+  "file": "hi_mad_003.wav",
+  "lang": "hi",
+  "text": "तेरह",
+  "value": 13,
+  "command": null
+ },
+ {
+  "file": "hi_mad_005.wav",
+  "lang": "hi",
+  "text": "सैंतीस",
+  "value": 37,
+  "command": null
+ },
+ {
+  "file": "hi_mad_007.wav",
+  "lang": "hi",
+  "text": "पचपन",
+  "value": 55,
+  "command": null
+ },
+ {
+  "file": "hi_mad_009.wav",
+  "lang": "hi",
+  "text": "छियासठ",
+  "value": 66,
+  "command": null
+ },
+ {
+  "file": "hi_mad_011.wav",
+  "lang": "hi",
+  "text": "सत्तासी",
+  "value": 87,
+  "command": null
+ },
+ {
+  "file": "hi_mad_013.wav",
+  "lang": "hi",
+  "text": "एक सौ",
+  "value": 100,
+  "command": null
+ },
+ {
+  "file": "hi_mad_015.wav",
+  "lang": "hi",
+  "text": "दो सौ पचास",
+  "value": 250,
+  "command": null
+ },
+ {
+  "file": "hi_mad_017.wav",
+  "lang": "hi",
+  "text": "दोबारा",
+  "value": null,
+  "command": "repeat"
+ },
+ {
+  "file": "hi_swa_000.wav",
+  "lang": "hi",
+  "text": "शून्य",
+  "value": 0,
+  "command": null
+ },
+ {
+  "file": "hi_swa_002.wav",
+  "lang": "hi",
+  "text": "नौ",
+  "value": 9,
+  "command": null
+ },
+ {
+  "file": "hi_swa_004.wav",
+  "lang": "hi",
+  "text": "चौबीस",
+  "value": 24,
+  "command": null
+ },
+ {
+  "file": "hi_swa_006.wav",
+  "lang": "hi",
+  "text": "अड़तालीस",
+  "value": 48,
+  "command": null
+ },
+ {
+  "file": "hi_swa_008.wav",
+  "lang": "hi",
+  "text": "उनसठ",
+  "value": 59,
+  "command": null
+ },
+ {
+  "file": "hi_swa_010.wav",
+  "lang": "hi",
+  "text": "बहत्तर",
+  "value": 72,
+  "command": null
+ },
+ {
+  "file": "hi_swa_012.wav",
+  "lang": "hi",
+  "text": "निन्यानवे",
+  "value": 99,
+  "command": null
+ },
+ {
+  "file": "hi_swa_014.wav",
+  "lang": "hi",
+  "text": "एक सौ पैंतीस",
+  "value": 135,
+  "command": null
+ },
+ {
+  "file": "hi_swa_016.wav",
+  "lang": "hi",
+  "text": "पाँच सौ छह",
+  "value": 506,
+  "command": null
+ },
+ {
+  "file": "hi_swa_018.wav",
+  "lang": "hi",
+  "text": "छोड़ो",
+  "value": null,
+  "command": "skip"
+ }
+]

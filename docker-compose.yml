@@ -1,0 +1,14 @@
+services:
+  ginti:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Optional. If empty, a random PIN is generated and printed in the log.
+      TEACHER_PIN: ${TEACHER_PIN:-}
+    volumes:
+      - ginti-data:/data
+    restart: unless-stopped
+
+volumes:
+  ginti-data:

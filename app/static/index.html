@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ginti · बोलकर गिनती</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/" aria-label="Ginti home">Ginti <span lang="hi">गिनती</span></a>
+  <a class="teacher-link" href="/teacher">Teacher</a>
+</header>
+<main id="app" aria-live="polite">
+
+  <section id="screen-start" class="card">
+    <h1>Speak your answers.<br><span lang="hi">बोलकर जवाब दो।</span></h1>
+    <label for="nick">Your name or nickname · <span lang="hi">अपना नाम</span></label>
+    <input id="nick" maxlength="24" autocomplete="off" autocapitalize="words">
+    <fieldset>
+      <legend>Language · <span lang="hi">भाषा</span></legend>
+      <label class="pill"><input type="radio" name="lang" value="hi" checked> <span lang="hi">हिन्दी</span></label>
+      <label class="pill"><input type="radio" name="lang" value="en"> English</label>
+    </fieldset>
+    <fieldset>
+      <legend>What to practise · <span lang="hi">क्या सीखना है</span></legend>
+      <div class="topics">
+        <button class="topic" data-topic="add">＋<small>Add · <span lang="hi">जमा</span></small></button>
+        <button class="topic" data-topic="sub">−<small>Subtract · <span lang="hi">घटा</span></small></button>
+        <button class="topic" data-topic="mul">×<small>Tables · <span lang="hi">पहाड़े</span></small></button>
+        <button class="topic" data-topic="mix">★<small>Mix · <span lang="hi">मिला-जुला</span></small></button>
+      </div>
+    </fieldset>
+    <p id="start-error" class="error" role="alert"></p>
+    <p class="note">No password. Your answers are saved under this name. No audio is recorded or kept.</p>
+  </section>
+
+  <section id="screen-ask" class="card hidden">
+    <div class="meter" aria-hidden="true"><span id="meter-fill"></span></div>
+    <p id="level" class="level"></p>
+    <div id="expr" class="expr" aria-live="polite"></div>
+    <p id="prompt" class="prompt"></p>
+    <div class="row">
+      <button id="btn-hear" class="ghost" aria-label="Hear the question again">🔊 <span id="t-hear">Hear again</span></button>
+      <button id="btn-mic" class="mic" aria-label="Speak your answer">🎤 <span id="t-speak">Speak</span></button>
+    </div>
+    <p id="status" class="status" role="status"></p>
+    <div id="heard-box" class="heard hidden">
+      <span id="heard-text"></span>
+      <button id="btn-redo" class="ghost small"></button>
+    </div>
+    <form id="typed" class="typed" autocomplete="off">
+      <label for="typed-in" id="t-typed">Or type it</label>
+      <input id="typed-in" inputmode="numeric" pattern="[0-9]*" maxlength="4">
+      <button class="ghost small" type="submit">OK</button>
+    </form>
+    <div id="feedback" class="feedback hidden" role="status"></div>
+  </section>
+
+  <section id="screen-done" class="card hidden">
+    <h1 id="done-title"></h1>
+    <p id="done-body" class="prompt"></p>
+    <ul id="done-miss"></ul>
+    <button id="btn-again" class="mic"></button>
+  </section>
+</main>
+<script src="/static/app.js" defer></script>
+</body>
+</html>
