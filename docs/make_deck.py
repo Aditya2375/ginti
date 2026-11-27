@@ -28,13 +28,24 @@ cellb = ParagraphStyle("cb", parent=cell, fontName="Bold")
 SLIDES = []
 
 
+SIDE = {
+    "Ginti: maths you answer out loud": ("img", "child.png"),
+    "The problem": ("nums", [("33.7%", "of Std III children (rural India) can do at least a subtraction"), ("30.7%", "of Std V children can do a division"), ("ASER 2024", "source: ASER Centre")]),
+    "Who it is for": ("img", "teacher.png"),
+    "What a child does": ("img", "child.png"),
+    "Market, with the assumptions shown": ("nums", [("24.8 crore", "students in school (UDISE+ 2023-24)"), ("14.72 lakh", "schools"), ("0", "pilots, customers or usage numbers so far")]),
+    "Cost to run": ("nums", [("0", "API keys, per-answer fees"), ("68x", "faster than real time, one decoding process, synthetic clips"), ("8", "simultaneous mic sessions per server")]),
+    "Limits we state up front": ("nums", [("52 / 56", "Hindi hundreds in the benchmark, the weakest case"), ("7 vs 60", "Hindi saat heard as saath in wide answer ranges"), ("0", "tests with real children")]),
+}
+
+
 def slide(title, items=None, table=None, widths=None, note=None, size=None, extra=None):
     SLIDES.append(dict(title=title, items=items or [], table=table, widths=widths, note=note, size=size, extra=extra))
 
 
 slide("Ginti: maths you answer out loud",
       ["Round 2 entry, theme: Inclusive education. Solo entry by Aditya Kulkarni.",
-       "A child hears a sum, says the answer in Hindi or English, and hears whether it was right. Answers are spoken, not typed. No password, no account, no API keys.",
+       "A child hears a sum, says the answer in Hindi or English, and hears whether it was right. The child speaks the answer; typing is only a fallback. No password, no account, no API keys.",
        "Runs with one command: <b>docker compose up</b>. Code: github.com/Aditya2375/ginti (MIT)."], size=24)
 
 slide("The problem",
@@ -72,7 +83,7 @@ slide("How it works",
        "Server (Python, FastAPI): decodes the audio with Vosk, an open-source offline recogniser, using its small Hindi and Indian-English models.",
        "For each question the recogniser is restricted to the words needed for plausible answers plus two commands. For 3 + 4 the answer can only be a number up to 20, so a similar-sounding word like <b>saath</b> (60) cannot replace <b>saat</b> (7).",
        "A parser turns the words into a number. Unclean input, like \"seven eight\", counts as not heard. The recogniser can still mishear a clean word as another valid number, so the child sees what was heard first.",
-       "The server holds the correct answer and does the scoring, so the browser cannot mark itself right."], size=20)
+       "The server holds the correct answer and does the scoring, so the browser cannot mark itself right. (Skipping a question shows its answer, on purpose.)"], size=20)
 slide("Pipeline", extra="pipeline")
 slide("What it looks like", extra="screens")
 
@@ -80,8 +91,8 @@ slide("Evidence so far",
       table=[["Check", "Result"],
              ["508 synthetic clips (two voices per language), each decoded in every answer band the app can assign: 1,208 results", "1,197 correct (99.1%). Hindi 0 to 99: 532/536, Hindi 100 to 999: 52/56. English 0 to 99: 533/536, 100 to 999: 56/56. Known miss: Hindi 7 heard as 60 in wide bands"],
              ["Stress, 33 fixture clips (80 results)", "Clean 77, pitch +40%: 65, noise 10 dB: 73, noise 0 dB: 56. Synthetic, crude"],
-             ["Speed", "One run, one decoding process: 1,208 decodes, 2,337 s of audio in 33.7 s, about 69 times faster than real time"],
-             ["Automated tests", "86 tests: numbers, question engine, database, every API route and its bad-input cases, fixture audio"],
+             ["Speed", "One run, one decoding process: 1,208 decodes, 2,337 s of audio in 34.4 s, about 68 times faster than real time"],
+             ["Automated tests", "88 tests: numbers, question engine, database, every API route and its bad-input cases, fixture audio"],
              ["Browser run", "One 10-question round in Chrome with recorded clips played into the microphone path: 10 of 10 scored right"],
              ["Docker", "CI builds the image, starts it with docker compose up, and recognises a spoken answer through it"]],
       widths=[320, 560])
@@ -104,7 +115,7 @@ slide("What it depends on, and what could go wrong",
 
 slide("Cost to run",
       ["There is no per-answer fee and no key. The only cost is the machine it runs on.",
-       "Measured: one decoding process runs about 69 times faster than real time. The code allows 8 simultaneous microphone sessions per server process.",
+       "Measured: one decoding process runs about 68 times faster than real time. The code allows 8 simultaneous microphone sessions per server process.",
        "Not measured: behaviour with 40 children on one server, or on a Raspberry Pi or a low-end phone. Those are the first things to test in a classroom.",
        "Data is a small SQLite file on a Docker volume. There is no backup yet."], size=21)
 
@@ -123,7 +134,7 @@ slide("Limits we state up front",
        "Whole numbers up to 9,999. Addition, subtraction, multiplication only.",
        "One server process, SQLite, no TLS built in."], size=21)
 
-slide("What Round 3 would add",
+slide("Next",
       ["Real-voice accuracy work with children's recordings, and per-age tuning of the answer limits.",
        "More question types that fit speech well: counting, number words, simple word problems.",
        "A teacher assignment view: choose the facts a class should practise this week.",
@@ -144,8 +155,8 @@ def pipeline(c):
     steps = [("Child's browser", "microphone, 16 kHz audio, worklet"), ("WebSocket", "audio frames, 15 s limit per socket"),
              ("Vosk (offline)", "grammar for this sum + 2 commands"), ("Number parser", "Hindi, Roman Hindi, English"),
              ("Server scores", "SQLite: attempt, box, level"), ("Spoken feedback", "device voice, teacher page")]
-    bw, bh, gap, y = 128, 110, 18, 270
-    x = 40
+    bw, bh, gap, y = 122, 110, 16, 270
+    x = 50
     for i, (a, b) in enumerate(steps):
         c.setFillColor(colors.white); c.setStrokeColor(GREEN); c.setLineWidth(2)
         c.roundRect(x, y, bw, bh, 8, fill=1, stroke=1)
@@ -203,8 +214,27 @@ def draw(c, s, n):
         return pipeline(c)
     if s["extra"] == "screens":
         return screens(c)
-    f = Frame(40, 40, W - 80, H - 78 - 60, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0, showBoundary=0)
-    f.addFromList([KeepInFrame(W - 80, H - 78 - 60, flow, mode="error")], c)
+    side = SIDE.get(s["title"])
+    fw = 540 if side else W - 80
+    f = Frame(40, 40, fw, H - 78 - 60, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0, showBoundary=0)
+    f.addFromList([KeepInFrame(fw, H - 78 - 60, flow, mode="shrink")], c)
+    if side and side[0] == "img":
+        im = ImageReader(os.path.join(HERE, "img", side[1]))
+        iw, ih = im.getSize()
+        w = 300.0
+        c.drawImage(im, 620, 440 - w * ih / iw, width=w, height=w * ih / iw)
+    elif side:
+        y = 420
+        for big, label in side[1]:
+            c.setFillColor(GREEN); c.setFont("Bold", 40); c.drawString(620, y, big)
+            c.setFillColor(MUTED); c.setFont("Body", 13)
+            words, line, ly = label.split(), "", y - 22
+            for w_ in words:
+                if c.stringWidth(line + " " + w_, "Body", 13) > 290:
+                    c.drawString(620, ly, line.strip()); line, ly = "", ly - 17
+                line += " " + w_
+            c.drawString(620, ly, line.strip())
+            y -= 120
 
 
 def main(out):

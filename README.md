@@ -38,7 +38,7 @@ Audio is kept in memory for one answer and then dropped. The database holds a ni
 | Hindi | 532 / 536 | 52 / 56 | 12 / 12 |
 | English | 533 / 536 | 56 / 56 | 12 / 12 |
 
-Total 1,197 of 1,208 (99.1%). Speed, one measured run on a single decoding process: 1,208 decodes, 2,337 seconds of audio, 33.7 seconds, about 69 times faster than real time.
+Total 1,197 of 1,208 (99.1%). Speed, one measured run on a single decoding process: 1,208 decodes, 2,337 seconds of audio, 34.4 seconds, about 68 times faster than real time.
 
 What this does not tell you:
 
