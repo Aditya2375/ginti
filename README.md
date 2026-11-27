@@ -49,7 +49,7 @@ Read this carefully:
 ## Limits you should know about
 
 - Chrome and Edge need `localhost` or HTTPS for the microphone. On a school network that means putting a TLS proxy in front. See [SECURITY.md](SECURITY.md).
-- Reading the question aloud uses the device's own text-to-speech voice. If a phone has no Hindi voice, the question is only on the screen. This has been tried in one browser only.
+- Reading the question aloud uses the device's own text-to-speech voice. If a phone has no Hindi voice, the question is only on the screen. This has not been checked on real phones.
 - No real accounts. A nickname is the login, so anyone can practise as someone else's nickname. The teacher page has a PIN.
 - Answers are whole numbers up to 9,999. Addition, subtraction and multiplication only. No division, fractions or word problems.
 - One server process, at most eight microphone sessions at a time, SQLite on a Docker volume, no backup.
