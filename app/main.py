@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import secrets
+import threading
 import time
 import wave
 from collections import OrderedDict, defaultdict, deque
@@ -30,6 +31,12 @@ from .store import BadNickname, Store
 log = logging.getLogger("ginti")
 STATIC = Path(__file__).parent / "static"
 MAX_SOCKETS = 8
+MAX_SOCKETS_PER_IP = 2
+SESSION_SECONDS = 15          # one answer never needs longer; a socket cannot be held open past this
+PENDING_PER_LEARNER = 3
+PIN_FAIL_LIMIT = 8
+PIN_TRACKED_IPS = 10000
+RATE = {"question": 90, "learners": 20}   # requests per minute per client address
 PENDING_TTL = 30 * 60
 PENDING_MAX = 5000
 FRAME_MAX = 64 * 1024
@@ -76,7 +83,10 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     picker = Picker()
     pending: "OrderedDict[str, tuple[int, Question, float, float]]" = OrderedDict()
     fails: dict[str, deque] = defaultdict(deque)
+    hits: dict[tuple[str, str], deque] = defaultdict(deque)
     sockets = {"n": 0}
+    per_ip: dict[str, int] = defaultdict(int)
+    plock = threading.Lock()       # sync routes run in threads and share `pending`
 
     if cfg.pin_generated:
         log.warning("TEACHER_PIN not set. Teacher PIN for this run: %s", cfg.teacher_pin)
@@ -85,8 +95,9 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     async def headers(request: Request, call_next):
         resp = await call_next(request)
         resp.headers["Content-Security-Policy"] = (
-            "default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data:; "
-            "style-src 'self'; script-src 'self'; media-src 'self'; frame-ancestors 'none'; base-uri 'none'")
+            "default-src 'self'; connect-src 'self'; img-src 'self' data:; "
+            "style-src 'self'; script-src 'self'; media-src 'self'; frame-ancestors 'none'; base-uri 'none'; "
+            "form-action 'self'")
         resp.headers["X-Content-Type-Options"] = "nosniff"
         resp.headers["Referrer-Policy"] = "no-referrer"
         resp.headers["Permissions-Policy"] = "microphone=(self), camera=(), geolocation=()"
@@ -95,13 +106,39 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         return resp
 
     # ---------------------------------------------------------------- basics
+    def _ip(request: Request) -> str:
+        return request.client.host if request.client else "?"
+
+    def _rate(request: Request, bucket: str) -> None:
+        q = hits[(_ip(request), bucket)]
+        now = time.time()
+        while q and q[0] < now - 60:
+            q.popleft()
+        if len(q) >= RATE[bucket]:
+            raise HTTPException(429, "too many requests, wait a moment")
+        q.append(now)
+        if len(hits) > 20000:                      # forget addresses that went quiet
+            for k in [k for k, v in hits.items() if not v or v[-1] < now - 60]:
+                del hits[k]
+
     @app.get("/api/health")
-    def health():
-        return {"ok": True, "version": __version__,
-                "speech": {"hi": speech.available("hi"), "en": speech.available("en")}}
+    async def health():
+        """ok is true only if every installed model really loads and builds a recogniser."""
+        status = {}
+        for lang in ("hi", "en"):
+            if not speech.available(lang):
+                status[lang] = False
+                continue
+            try:
+                await run_in_threadpool(speech.session, lang, 0, 20)
+                status[lang] = True
+            except Exception:
+                status[lang] = False
+        return {"ok": any(status.values()), "version": __version__, "speech": status}
 
     @app.post("/api/learners")
-    def learners(body: Learner):
+    def learners(body: Learner, request: Request):
+        _rate(request, "learners")
         try:
             l = store.learner(body.nickname, body.lang)
         except BadNickname as e:
@@ -121,22 +158,32 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         while pending and (len(pending) > PENDING_MAX or next(iter(pending.values()))[2] < now - PENDING_TTL):
             pending.popitem(last=False)
 
+    def _add_pending(lid: int, q: Question) -> str:
+        qid = secrets.token_urlsafe(9)
+        with plock:
+            _prune()
+            mine = [k for k, v in pending.items() if v[0] == lid]
+            for k in mine[: max(0, len(mine) - PENDING_PER_LEARNER + 1)]:
+                del pending[k]                     # one learner cannot crowd out the others
+            pending[qid] = (lid, q, time.time(), 0.0)
+        return qid
+
     @app.post("/api/question")
-    def question(body: QuestionReq):
+    def question(body: QuestionReq, request: Request):
+        _rate(request, "question")
         if body.topic not in TOPICS:
             raise HTTPException(422, "unknown topic")
         l = _learner(body.learner_id)
         p = store.progress(l["id"], body.topic)
         q = picker.next_question(body.topic, p["level"], store.boxes(l["id"]), p["served"])
-        qid = secrets.token_urlsafe(9)
-        _prune()
-        pending[qid] = (l["id"], q, time.time(), 0.0)
+        qid = _add_pending(l["id"], q)
         lo, hi = q.answer_range
         return {"qid": qid, "topic": q.topic, "display": q.display(), "prompt": q.prompt(l["lang"]),
                 "lang": l["lang"], "lo": lo, "hi": hi, "level": q.level, "served": p["served"]}
 
     def _take(lid: int, qid: str) -> Question:
-        item = pending.pop(qid, None)
+        with plock:
+            item = pending.pop(qid, None)
         if item is None or item[0] != lid:
             raise HTTPException(404, "that question is no longer open")
         return item[1]
@@ -169,9 +216,19 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         if lang not in ("hi", "en"):
             raise HTTPException(422, "lang must be hi or en")
         lo, hi = _range(lo, hi)
-        raw = await request.body()
-        if len(raw) > WAV_MAX:
+        try:
+            declared = int(request.headers.get("content-length", "0"))
+        except ValueError:
+            raise HTTPException(400, "bad content-length")
+        if declared > WAV_MAX:
             raise HTTPException(413, "audio too large")
+        chunks, size = [], 0
+        async for chunk in request.stream():       # never hold more than the limit in memory
+            size += len(chunk)
+            if size > WAV_MAX:
+                raise HTTPException(413, "audio too large")
+            chunks.append(chunk)
+        raw = b"".join(chunks)
         try:
             with wave.open(io.BytesIO(raw)) as w:
                 if (w.getframerate(), w.getnchannels(), w.getsampwidth()) != (SAMPLE_RATE, 1, 2):
@@ -192,14 +249,23 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         if ws.headers.get("origin") and not _same_origin(ws):
             await ws.close(code=1008)
             return
-        if sockets["n"] >= MAX_SOCKETS:
+        ip = ws.client.host if ws.client else "?"
+        if sockets["n"] >= MAX_SOCKETS or per_ip[ip] >= MAX_SOCKETS_PER_IP:
             await ws.close(code=1013)
             return
         await ws.accept()
         sockets["n"] += 1
+        per_ip[ip] += 1
         session = None
+        deadline = time.monotonic() + SESSION_SECONDS
+
+        def left() -> float:
+            r = deadline - time.monotonic()
+            if r <= 0:
+                raise asyncio.TimeoutError()
+            return r
         try:
-            cfgmsg = json.loads(await asyncio.wait_for(ws.receive_text(), 10))
+            cfgmsg = json.loads(await asyncio.wait_for(ws.receive_text(), min(10, left())))
             lang = cfgmsg.get("lang")
             lo, hi = int(cfgmsg.get("lo", 0)), int(cfgmsg.get("hi", 100))
             if lang not in ("hi", "en") or not (0 <= lo <= hi <= 9999):
@@ -212,7 +278,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
                 return
             await ws.send_json({"type": "ready"})
             while True:
-                msg = await asyncio.wait_for(ws.receive(), 20)
+                msg = await asyncio.wait_for(ws.receive(), left())
                 if msg["type"] == "websocket.disconnect":
                     return
                 if msg.get("bytes") is not None:
@@ -236,6 +302,9 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
             pass
         finally:
             sockets["n"] -= 1
+            per_ip[ip] -= 1
+            if per_ip[ip] <= 0:
+                per_ip.pop(ip, None)
             try:
                 await ws.close()
             except Exception:
@@ -243,17 +312,24 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
 
     def _same_origin(ws: WebSocket) -> bool:
         origin = ws.headers.get("origin", "")
-        host = ws.headers.get("host", "")
-        return origin.split("://", 1)[-1] == host
+        hosts = {ws.headers.get("host", ""), ws.headers.get("x-forwarded-host", "")} - {""}
+        return origin.split("://", 1)[-1] in hosts
 
     # --------------------------------------------------------------- teacher
     def _check_pin(request: Request) -> None:
-        ip = request.client.host if request.client else "?"
+        ip = _ip(request)
         q = fails[ip]
         now = time.time()
         while q and q[0] < now - 60:
             q.popleft()
-        if len(q) >= 8:
+        if not q:
+            fails.pop(ip, None)
+            q = fails[ip]
+        if len(fails) > PIN_TRACKED_IPS:           # bound memory: drop addresses with no recent failures
+            for k in [k for k, v in fails.items() if not v or v[-1] < now - 60]:
+                fails.pop(k, None)
+            q = fails[ip]
+        if len(q) >= PIN_FAIL_LIMIT:
             raise HTTPException(429, "too many wrong PINs, wait a minute")
         given = request.headers.get("x-teacher-pin", "")
         if not hmac.compare_digest(given.encode(), cfg.teacher_pin.encode()):
@@ -306,4 +382,6 @@ def _csv_safe(s: str) -> str:
 
 def app_factory() -> FastAPI:
     logging.basicConfig(level=logging.INFO)
-    return create_app()
+    app = create_app()
+    app.state.speech.preload()             # load the models now, not on the first child's question
+    return app

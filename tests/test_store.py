@@ -11,7 +11,7 @@ def st():
 def test_learner_get_or_create_and_nickname_rules(st):
     a = st.learner("Asha", "hi")
     assert st.learner("asha", "hi")["id"] == a["id"]
-    assert st.learner("Asha", "en")["lang"] == "en"
+    assert st.learner("Asha", "en")["lang"] == "hi"      # language is set when the nickname is first used
     for bad in ["", "   ", "x" * 25, "a<b>", "a;drop", "=cmd"]:
         with pytest.raises(BadNickname):
             st.learner(bad, "hi")

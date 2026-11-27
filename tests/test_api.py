@@ -212,3 +212,38 @@ def test_real_model_over_http_and_websocket(tmp_path):
             if msg["type"] == "final":
                 got = msg
         assert got["value"] == 58
+
+
+def test_one_learner_cannot_crowd_out_others(client):
+    a, b = make(client, "Asha"), make(client, "Binu")
+    first_b = client.post("/api/question", json={"learner_id": b["id"], "topic": "add"}).json()
+    for _ in range(10):
+        client.post("/api/question", json={"learner_id": a["id"], "topic": "add"})
+    r = client.post("/api/answer", json={"learner_id": b["id"], "qid": first_b["qid"], "text": "5"})
+    assert r.status_code == 200, "Binu's open question must survive Asha asking many"
+
+
+def test_question_and_learner_rate_limits(client):
+    l = make(client)
+    codes = [client.post("/api/question", json={"learner_id": l["id"], "topic": "add"}).status_code for _ in range(100)]
+    assert codes.count(429) >= 1 and codes[0] == 200
+    codes = [client.post("/api/learners", json={"nickname": f"kid{i}", "lang": "en"}).status_code for i in range(30)]
+    assert 429 in codes
+
+
+def test_language_is_not_changed_by_a_later_login(client):
+    make(client, "Asha", "hi")
+    assert make(client, "Asha", "en")["lang"] == "hi"
+
+
+def test_websocket_cap_per_address(client):
+    from starlette.websockets import WebSocketDisconnect
+    with client.websocket_connect("/ws/listen") as w1, client.websocket_connect("/ws/listen") as w2:
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect("/ws/listen") as w3:
+                w3.receive_text()
+
+
+def test_oversized_audio_is_refused_from_the_header(client):
+    r = client.post("/api/recognise?lang=en", content=b"\0" * (2 * 1024 * 1024 + 10))
+    assert r.status_code == 413

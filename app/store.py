@@ -67,9 +67,6 @@ class Store:
                 for t in TOPICS:
                     self._db.execute("INSERT INTO progress(learner_id,topic) VALUES(?,?)", (lid, t))
                 row = self._db.execute("SELECT * FROM learners WHERE id=?", (lid,)).fetchone()
-            elif row["lang"] != lang:
-                self._db.execute("UPDATE learners SET lang=? WHERE id=?", (lang, row["id"]))
-                row = self._db.execute("SELECT * FROM learners WHERE id=?", (row["id"],)).fetchone()
             return dict(row)
 
     def get_learner(self, lid: int) -> dict | None:
