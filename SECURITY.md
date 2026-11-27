@@ -4,7 +4,7 @@ Ginti is a prototype. It has no accounts, no passwords and no third-party calls,
 
 What it does to stay safe:
 
-- Speech is decoded on the server. Audio is held in memory for one utterance (12 seconds at most) and never written to disk or sent anywhere else. A microphone socket lives at most 15 seconds, with at most 8 in total and 8 per address.
+- Speech is decoded on the server. Audio is held in memory for one utterance (12 seconds at most) and never written to disk or sent anywhere else. A microphone socket lives at most 15 seconds, with at most 8 in total and 3 per address.
 - The database stores a nickname, answers and timings. No audio, no real names, no contact details.
 - The teacher page and CSV export need a PIN. Wrong PINs are rate limited per address (8 a minute). A random PIN is made at startup if `TEACHER_PIN` is empty.
 - All SQL is parameterised. CSV export defuses spreadsheet formulas in nicknames.
