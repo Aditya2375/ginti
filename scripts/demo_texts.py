@@ -1,0 +1,27 @@
+"""Words for the demo video: name -> (spoken narration, on-screen caption). Used by demo_record.py,
+demo_narrate.py and demo_build.py. The numbers quoted here are the README's benchmark numbers."""
+
+TEXTS = {
+    "P0": ("In India's rural ASER 2024 survey, 33.7 percent of Standard Three children could do at least a subtraction, and 30.7 percent of Standard Five children could do a division. Practice on a screen usually needs reading and typing. Ginti lets a child answer out loud.",
+           "ASER 2024 (rural India): 33.7% of Std III children can do at least a subtraction; 30.7% of Std V can do a division."),
+    "A1": ("This is Ginti, maths practice you answer out loud, in Hindi or English. Each sum is shown and read aloud, and the microphone is already listening. The voices in this demo are synthetic, not a real child.",
+           "Each sum is shown and read aloud; the microphone is already listening. All voices in this demo are synthetic."),
+    "A3": ("Speech recognition runs offline on the server, using Vosk. For each question it listens only for words that could be an answer, so seven cannot be heard as sixty.",
+           "Offline recognition (Vosk), limited to words that fit this sum."),
+    "A4": ("A wrong answer shows the right one, and that fact comes back sooner. The child sees what was heard first, and can say no, say it again.",
+           "The app shows what it heard. A wrong answer shows the right one."),
+    "B1": ("The same works in English. Say repeat, and the sum is read again.",
+           "English round. Spoken command: repeat."),
+    "B2": ("Say skip, and the app tells you the answer and moves on.",
+           "Spoken command: skip."),
+    "B3": ("If the microphone is no good, typing is a fallback.",
+           "Typing is only a fallback."),
+    "B4": ("The teacher page is behind a PIN. It shows each child's accuracy, speed, level, and the facts they keep missing, with a C S V export.",
+           "Teacher page (PIN): accuracy, speed, level, facts missed. CSV export."),
+    "P1": ("Behind it is one container. The browser streams audio to a FastAPI server, Vosk decodes it offline, and the server does the scoring. No audio is stored, and no outside service is called.",
+           "One container: browser, WebSocket, Vosk offline, server scores. No audio stored."),
+    "P2": ("On five hundred and eight synthetic clips, decoded in every answer range the app uses, ninety nine point one percent were right. There are eighty eight automated tests, and a browser run scored ten out of ten.",
+           "99.1% of 1,208 synthetic clip-and-range tests. 88 tests. Browser run 10/10."),
+    "P3": ("Honest limits. One known miss: Hindi saat is heard as saath in wide ranges. Hindi hundreds are weaker. Nothing is tested yet on real children or phones. It starts with one command, docker compose up, and the code is M I T licensed on GitHub.",
+           "Not tested on real children or phones. docker compose up. MIT licence."),
+}
