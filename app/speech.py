@@ -64,17 +64,25 @@ class Heard:
 
 
 def interpret(text: str, lang: str) -> Heard:
-    """Turn recogniser text into a number, a command, or neither."""
+    """Turn recogniser text into a number, a command, or neither.
+
+    [unk] means the recogniser heard something outside the allowed words. At the start or
+    end of the utterance that is usually a cough or a breath, so it is ignored. In the
+    middle it could hide a word, so the answer is rejected rather than guessed."""
     text = text.strip()
-    if text.replace("[unk]", "").strip() == "":
-        return Heard(text, None, None)
     words = text.split()
+    while words and words[0] == "[unk]":
+        words.pop(0)
+    while words and words[-1] == "[unk]":
+        words.pop()
+    if not words:
+        return Heard(text, None, None)
     for name, word in COMMAND_WORDS[lang].items():
         if words == [word]:
             return Heard(text, None, name)
     if "[unk]" in words:
         return Heard(text, None, None)
-    return Heard(text, parse_number(text, lang), None)
+    return Heard(text, parse_number(" ".join(words), lang), None)
 
 
 class Engine:
@@ -87,6 +95,15 @@ class Engine:
 
     def available(self, lang: str) -> bool:
         return os.path.isdir(os.path.join(self.model_dir, MODEL_NAMES[lang]))
+
+    def preload(self) -> list[str]:
+        """Load every installed model now, so the first child does not wait for it."""
+        loaded = []
+        for lang in MODEL_NAMES:
+            if self.available(lang):
+                self._model(lang)
+                loaded.append(lang)
+        return loaded
 
     def _model(self, lang: str):
         with self._lock:

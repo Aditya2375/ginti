@@ -28,8 +28,12 @@ def test_interpret():
     assert interpret("दोबारा", "hi").command == "repeat"
     assert interpret("skip", "en").command == "skip"
     assert interpret("[unk]", "en").value is None
-    assert interpret("five [unk]", "en").value is None      # something unheard in the middle: do not guess
+    assert interpret("five [unk] two", "en").value is None   # something unheard in the middle: do not guess
     assert interpret("", "hi").value is None
+    assert interpret("[unk] seven", "en").value == 7          # a cough before the answer
+    assert interpret("[unk] repeat", "en").command == "repeat"
+    assert interpret("seven [unk]", "en").value == 7
+    assert interpret("five [unk] two", "en").value is None
     assert interpret("seven eight", "en").value is None
 
 
