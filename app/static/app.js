@@ -27,7 +27,7 @@ const T = {
 };
 
 const $ = id => document.getElementById(id);
-const state = { learner: null, topic: null, q: null, round: [], busy: false, t0: 0, ws: null, audio: null };
+const state = { learner: null, topic: null, q: null, round: [], busy: false, t0: 0, ws: null, audio: null, token: 0, confirm: null, listenTimer: null };
 const S = () => T[state.learner.lang];
 
 function show(id) {
@@ -64,7 +64,7 @@ document.querySelectorAll(".topic").forEach(b => b.addEventListener("click", asy
   const nick = $("nick").value.trim();
   const lang = document.querySelector("input[name=lang]:checked").value;
   $("start-error").textContent = "";
-  if (!nick) { $("start-error").textContent = "Type a name first · पहले नाम लिखो"; $("nick").focus(); return; }
+  if (!nick) { $("start-error").textContent = "Type a nickname first · पहले उपनाम लिखो"; $("nick").focus(); return; }
   try {
     state.learner = await api("/api/learners", { nickname: nick, lang });
   } catch (e) { $("start-error").textContent = e.message; return; }
@@ -78,6 +78,7 @@ document.querySelectorAll(".topic").forEach(b => b.addEventListener("click", asy
 
 // -------------------------------------------------------------- questions
 async function nextQuestion() {
+  clearTimeout(state.confirm);
   if (state.round.length >= ROUND) return finish();
   $("feedback").classList.add("hidden");
   $("heard-box").classList.add("hidden");
@@ -113,6 +114,7 @@ $("typed").addEventListener("submit", ev => {
 
 // ------------------------------------------------------------- listening
 function stopListening() {
+  state.token++;                            // cancels a start that is still waiting on the mic
   if (state.audio) { state.audio.stream.getTracks().forEach(t => t.stop()); state.audio.ctx.close().catch(() => {}); state.audio = null; }
   if (state.ws) { try { state.ws.close(); } catch (_) {} state.ws = null; }
   clearTimeout(state.listenTimer);
@@ -122,15 +124,23 @@ function stopListening() {
 
 async function startListening() {
   if (state.busy || !state.q) return;
+  clearTimeout(state.confirm);
   stopListening();
+  const token = state.token;
   const q = state.q;
   $("status").textContent = "…";
   $("btn-mic").classList.add("live");
   $("t-speak").textContent = "■";
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    const release = c => { stream.getTracks().forEach(t => t.stop()); if (c) c.close().catch(() => {}); };
+    if (token !== state.token) { release(null); return; }     // a newer start or a stop came first
     const ctx = new AudioContext();
-    await ctx.audioWorklet.addModule("/static/pcm-worklet.js");
+    try {
+      await ctx.resume();                                      // iOS Safari starts contexts suspended
+      await ctx.audioWorklet.addModule("/static/pcm-worklet.js");
+    } catch (e) { release(ctx); throw e; }
+    if (token !== state.token) { release(ctx); return; }
     const src = ctx.createMediaStreamSource(stream);
     const node = new AudioWorkletNode(ctx, "pcm-worklet");
     src.connect(node);
@@ -183,6 +193,7 @@ function onHeard(m, ms) {
 // --------------------------------------------------------------- answers
 async function submit(text, mode, ms) {
   if (state.busy) return;
+  clearTimeout(state.confirm);
   state.busy = true; stopListening();
   let r;
   try {
@@ -198,6 +209,7 @@ async function submit(text, mode, ms) {
 
 async function skipQuestion() {
   if (state.busy) return;
+  clearTimeout(state.confirm);
   state.busy = true; stopListening();
   try {
     const r = await api("/api/skip", { learner_id: state.learner.id, qid: state.q.qid });
