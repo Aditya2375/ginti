@@ -37,6 +37,14 @@ def test_interpret():
     assert interpret("seven eight", "en").value is None
 
 
+def test_text_reparses_to_the_same_value():
+    """The browser sends back what was heard and the server parses it again: both must agree."""
+    from app.numbers import parse_number
+    for lang, t in [("hi", "[unk] सात"), ("en", "[unk] seven"), ("en", "seven [unk]"), ("hi", "पचपन"), ("en", "fifty five [unk]")]:
+        h = interpret(t, lang)
+        assert h.value is not None and parse_number(h.text, lang) == h.value, (t, h)
+
+
 def _pcm(name):
     with wave.open(os.path.join(FIX, name)) as w:
         assert (w.getframerate(), w.getnchannels(), w.getsampwidth()) == (16000, 1, 2)

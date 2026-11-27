@@ -75,14 +75,15 @@ def interpret(text: str, lang: str) -> Heard:
         words.pop(0)
     while words and words[-1] == "[unk]":
         words.pop()
+    clean = " ".join(words)               # what the app keeps: the browser and server must agree on it
     if not words:
         return Heard(text, None, None)
     for name, word in COMMAND_WORDS[lang].items():
         if words == [word]:
-            return Heard(text, None, name)
+            return Heard(clean, None, name)
     if "[unk]" in words:
         return Heard(text, None, None)
-    return Heard(text, parse_number(" ".join(words), lang), None)
+    return Heard(clean, parse_number(clean, lang), None)
 
 
 class Engine:
