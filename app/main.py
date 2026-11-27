@@ -269,12 +269,20 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
             await ws.close(code=1008)
             return
         ip = _addr(ws.client, ws.headers)
-        if sockets["n"] >= MAX_SOCKETS or per_ip[ip] >= MAX_SOCKETS_PER_IP:
-            await ws.close(code=1013)
-            return
+        # Reserve the slot before the first await so two sockets cannot both pass the check.
+        busy = sockets["n"] >= MAX_SOCKETS or per_ip[ip] >= MAX_SOCKETS_PER_IP
+        if not busy:
+            sockets["n"] += 1
+            per_ip[ip] += 1
         await ws.accept()
-        sockets["n"] += 1
-        per_ip[ip] += 1
+        if busy:
+            # Close before accept would reach the browser as a plain HTTP 403 with no reason, so accept first.
+            try:
+                await ws.send_json({"type": "error", "message": "busy"})
+                await ws.close(code=1013)
+            except Exception:
+                pass
+            return
         session = None
         deadline = time.monotonic() + SESSION_SECONDS
 

@@ -197,7 +197,7 @@ async function startListening() {
         stopListening();
         onHeard(m, ms);
       } else if (m.type === "error") {
-        stopListening(); $("status").textContent = S().nomic;
+        stopListening(); $("status").textContent = m.message === "busy" ? S().busy : S().nomic;
       }
     };
     ws.onerror = () => { stopListening(); $("status").textContent = S().nomic; };

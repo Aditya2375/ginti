@@ -261,8 +261,9 @@ def test_websocket_cap_per_address(client, monkeypatch):
     monkeypatch.setattr(m, "MAX_SOCKETS_PER_IP", 2)
     from starlette.websockets import WebSocketDisconnect
     with client.websocket_connect("/ws/listen") as w1, client.websocket_connect("/ws/listen") as w2:
-        with pytest.raises(WebSocketDisconnect):
-            with client.websocket_connect("/ws/listen") as w3:
+        with client.websocket_connect("/ws/listen") as w3:      # accepted, told it is busy, then closed
+            assert w3.receive_json() == {"type": "error", "message": "busy"}
+            with pytest.raises(WebSocketDisconnect):
                 w3.receive_text()
 
 
