@@ -14,6 +14,7 @@ const T = {
     doneTitle: "शाबाश!", doneBody: (c, n) => `${n} में से ${c} सही।`,
     again: "फिर खेलो", miss: "इन पर फिर मेहनत करो:", lang: "hi-IN",
     nospeech: "इस फ़ोन में आवाज़ नहीं है, सवाल स्क्रीन पर पढ़ो।",
+    retry: "फिर कोशिश करो", busy: "अभी बहुत लोग हैं। थोड़ी देर बाद कोशिश करो।", sameName: l => `यह नाम पहले से ${l} में है।`,
   },
   en: {
     hear: "Hear again", speak: "Speak", listening: "Listening…", heard: "You said",
@@ -23,6 +24,7 @@ const T = {
     doneTitle: "Well done!", doneBody: (c, n) => `${c} right out of ${n}.`,
     again: "Play again", miss: "Practise these again:", lang: "en-IN",
     nospeech: "This device has no voice, read the question on the screen.",
+    retry: "Try again", busy: "Too many people right now. Try again in a moment.", sameName: l => `This name already uses ${l}.`,
   },
 };
 
@@ -40,6 +42,15 @@ async function api(path, body) {
   if (!r.ok) throw new Error(data.detail || `Error ${r.status}`);
   return data;
 }
+
+// A failed call (busy server, network blip) must not strand the child: show why and a button.
+function failed(e) {
+  state.busy = false;
+  $("status").textContent = e && e.message ? e.message : "…";
+  $("btn-retry").textContent = S().retry;
+  $("btn-retry").classList.remove("hidden");
+}
+$("btn-retry").addEventListener("click", () => { $("btn-retry").classList.add("hidden"); state.busy = false; nextQuestion(); });
 
 // ------------------------------------------------------------------ speaking
 function speak(text) {
@@ -68,6 +79,10 @@ document.querySelectorAll(".topic").forEach(b => b.addEventListener("click", asy
   try {
     state.learner = await api("/api/learners", { nickname: nick, lang });
   } catch (e) { $("start-error").textContent = e.message; return; }
+  if (state.learner.lang !== lang) {
+    // a nickname keeps the language it was first used with; say so instead of switching silently
+    $("start-error").textContent = T[state.learner.lang].sameName(state.learner.lang === "hi" ? "हिन्दी" : "English");
+  }
   state.topic = b.dataset.topic;
   state.round = [];
   $("t-hear").textContent = S().hear; $("t-speak").textContent = S().speak; $("t-typed").textContent = S().typed;
@@ -85,9 +100,10 @@ async function nextQuestion() {
   $("status").textContent = "";
   $("typed-in").value = "";
   $("meter-fill").style.width = `${(state.round.length / ROUND) * 100}%`;
+  $("btn-retry").classList.add("hidden");
   try {
     state.q = await api("/api/question", { learner_id: state.learner.id, topic: state.topic });
-  } catch (e) { $("status").textContent = e.message; return; }
+  } catch (e) { failed(e); return; }
   $("expr").textContent = state.q.display;
   $("prompt").textContent = state.q.prompt;
   $("level").textContent = S().level(state.q.level);
@@ -101,7 +117,10 @@ async function readAloud() {
   if (!ok && !window.speechSynthesis) $("status").textContent = S().nospeech;
 }
 
-$("btn-hear").addEventListener("click", async () => { stopListening(); await readAloud(); });
+$("btn-hear").addEventListener("click", async () => {
+  clearTimeout(state.confirm); $("heard-box").classList.add("hidden");   // do not score an answer while the question replays
+  stopListening(); await readAloud();
+});
 $("btn-mic").addEventListener("click", () => { if (state.ws) stopListening(); else startListening(); });
 $("btn-redo").addEventListener("click", () => {
   clearTimeout(state.confirm); $("heard-box").classList.add("hidden"); startListening();
@@ -154,7 +173,14 @@ async function startListening() {
       if (ready && ws.readyState === 1) ws.send(e.data);
       else if (queued.length < 30) queued.push(e.data);
     };
-    ws.onopen = () => ws.send(JSON.stringify({ lang: q.lang, lo: q.lo, hi: q.hi }));
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ lang: q.lang, lo: q.lo, hi: q.hi }));
+      state.listenTimer = setTimeout(() => { if (state.ws === ws) { stopListening(); $("status").textContent = S().nohear; } }, LISTEN_MS + 4000);
+    };
+    ws.onclose = ev => {
+      // the server closes on its own deadline, on a restart, or when it is full (1013)
+      if (state.ws === ws) { stopListening(); $("status").textContent = ev.code === 1013 ? S().busy : S().nohear; }
+    };
     ws.onmessage = ev => {
       const m = JSON.parse(ev.data);
       if (m.type === "ready") {
@@ -162,6 +188,7 @@ async function startListening() {
         ready = true;
         $("status").textContent = S().listening;
         for (const chunk of queued.splice(0)) ws.send(chunk);
+        clearTimeout(state.listenTimer);
         state.listenTimer = setTimeout(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: "stop" })); }, LISTEN_MS);
       } else if (m.type === "partial") {
         $("status").textContent = `${S().listening} ${m.text}`;
@@ -187,7 +214,7 @@ function onHeard(m, ms) {
   $("status").textContent = "";
   $("heard-text").textContent = `${S().heard}: ${m.value}`;
   $("heard-box").classList.remove("hidden");
-  state.confirm = setTimeout(() => { $("heard-box").classList.add("hidden"); submit(m.text, "voice", ms); }, CONFIRM_MS);
+  state.confirm = setTimeout(() => { $("heard-box").classList.add("hidden"); submit(String(m.value), "voice", ms); }, CONFIRM_MS);
 }
 
 // --------------------------------------------------------------- answers
@@ -198,7 +225,10 @@ async function submit(text, mode, ms) {
   let r;
   try {
     r = await api("/api/answer", { learner_id: state.learner.id, qid: state.q.qid, text, ms: ms ?? null, mode });
-  } catch (e) { state.busy = false; $("status").textContent = e.message; return; }
+  } catch (e) {
+    if (/no longer open/.test(e.message)) { state.busy = false; nextQuestion(); return; }   // question expired: get a fresh one
+    state.busy = false; $("status").textContent = e.message; return;
+  }
   state.round.push({ display: state.q.display, ok: r.correct, expected: r.expected });
   const fb = $("feedback");
   fb.className = `feedback ${r.correct ? "ok" : "no"}`;
@@ -216,7 +246,7 @@ async function skipQuestion() {
     state.round.push({ display: state.q.display, ok: false, expected: r.expected });
     const fb = $("feedback"); fb.className = "feedback no"; fb.textContent = S().skipped(r.expected);
     await speak(S().skipped(r.expected));
-  } catch (e) { $("status").textContent = e.message; }
+  } catch (e) { failed(e); return; }
   setTimeout(nextQuestion, 900);
 }
 
