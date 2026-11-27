@@ -179,7 +179,7 @@ async function startListening() {
     };
     ws.onclose = ev => {
       // the server closes on its own deadline, on a restart, or when it is full (1013)
-      if (state.ws === ws) { stopListening(); $("status").textContent = ev.code === 1013 ? S().busy : S().nohear; }
+      if (state.ws === ws) { stopListening(); $("status").textContent = ev.code === 1013 ? S().busy : ev.code === 1008 ? S().nomic : S().nohear; }
     };
     ws.onmessage = ev => {
       const m = JSON.parse(ev.data);
@@ -227,7 +227,7 @@ async function submit(text, mode, ms) {
     r = await api("/api/answer", { learner_id: state.learner.id, qid: state.q.qid, text, ms: ms ?? null, mode });
   } catch (e) {
     if (/no longer open/.test(e.message)) { state.busy = false; nextQuestion(); return; }   // question expired: get a fresh one
-    state.busy = false; $("status").textContent = e.message; return;
+    failed(e); return;
   }
   state.round.push({ display: state.q.display, ok: r.correct, expected: r.expected });
   const fb = $("feedback");
@@ -246,7 +246,10 @@ async function skipQuestion() {
     state.round.push({ display: state.q.display, ok: false, expected: r.expected });
     const fb = $("feedback"); fb.className = "feedback no"; fb.textContent = S().skipped(r.expected);
     await speak(S().skipped(r.expected));
-  } catch (e) { failed(e); return; }
+  } catch (e) {
+    if (/no longer open/.test(e.message)) { state.busy = false; nextQuestion(); return; }
+    failed(e); return;
+  }
   setTimeout(nextQuestion, 900);
 }
 
