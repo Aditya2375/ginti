@@ -86,6 +86,8 @@ scripts/         model download, test-audio maker, benchmark, stress check, smok
 
 Written from scratch on 27 November 2026 for this hackathon, by one person. The repository started private, so the first public history is short: the first commit holds most of the app (server, speech, engine, pages) and the following commits are fixes made after review rounds: front end races, security limits, honest benchmark, docs and the deck. The commit times are the real times. Models are third party (Vosk, Apache 2.0) and are downloaded at build time, not part of the code.
 
+Parts of the writing were dictated with Wispr Flow. The code and the app do not use Wispr Flow.
+
 ## Licence
 
 MIT, see [LICENSE](LICENSE). The two speech models are Apache 2.0, from the Vosk project: https://alphacephei.com/vosk/models
