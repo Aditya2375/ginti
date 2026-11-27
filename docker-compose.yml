@@ -7,6 +7,8 @@ services:
     environment:
       # Optional. If empty, a random PIN is generated and printed in the log.
       TEACHER_PIN: ${TEACHER_PIN:-}
+      # Set to 1 only behind a reverse proxy you control that sets X-Forwarded-For (see SECURITY.md).
+      GINTI_TRUSTED_PROXY: ${GINTI_TRUSTED_PROXY:-}
     volumes:
       - ginti-data:/data
     restart: unless-stopped

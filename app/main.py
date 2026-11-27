@@ -31,7 +31,7 @@ from .store import BadNickname, Store
 log = logging.getLogger("ginti")
 STATIC = Path(__file__).parent / "static"
 MAX_SOCKETS = 8
-MAX_SOCKETS_PER_IP = 8
+MAX_SOCKETS_PER_IP = 3
 SESSION_SECONDS = 15          # one answer never needs longer; a socket cannot be held open past this
 PENDING_PER_LEARNER = 3
 TRUSTED_PROXY = os.environ.get("GINTI_TRUSTED_PROXY", "") == "1"   # take the client address from X-Forwarded-For
@@ -320,7 +320,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
                         h = await run_in_threadpool(session.finish)
                         await ws.send_json({"type": "final", "text": h.text, "value": h.value, "command": h.command})
                         return
-        except (WebSocketDisconnect, asyncio.TimeoutError, json.JSONDecodeError, ValueError, TypeError, AttributeError, OverflowError):
+        except (WebSocketDisconnect, asyncio.TimeoutError, json.JSONDecodeError, ValueError, TypeError, AttributeError, OverflowError, KeyError):
             pass
         except RuntimeError:
             pass
