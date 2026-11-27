@@ -27,7 +27,7 @@ with open(f"{W}/subs.srt", "w") as f:
     i = 1
     for q in cues:
         if q["kind"] == "nar":
-            f.write(f"{i}\n{ts(q['t'])} --> {ts(q['t'] + D[q['name']] + (7 if q['name'] == 'N8' else 0))}\n" + "\n".join(textwrap.wrap(q["caption"], 70)) + "\n\n")
+            f.write(f"{i}\n{ts(q['t'])} --> {ts(q['t'] + D[q['name']] + (8 if q['name'] == 'N8' else 0))}\n" + "\n".join(textwrap.wrap(q["caption"], 70)) + "\n\n")
             i += 1
 inputs, fl, nars, anss = ["-i", raw], [], [], []
 for k, q in enumerate(cues, 1):
