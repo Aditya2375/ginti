@@ -1,6 +1,6 @@
 # Ginti · गिनती
 
-Maths practice you do by talking. The app reads a sum aloud, the child says the answer in Hindi or English, and the app says whether it was right. No typing and no account.
+Maths practice you do by talking. The app reads a sum aloud, the child says the answer in Hindi or English, and the app says whether it was right. Answers are spoken, not typed. There is no password and no account.
 
 Meant for children who can say an answer before they can type it, on whatever device a classroom has. Not yet tried on one.
 
@@ -38,7 +38,7 @@ Audio is kept in memory for one answer and then dropped. The database holds a ni
 | Hindi | 532 / 536 | 52 / 56 | 12 / 12 |
 | English | 533 / 536 | 56 / 56 | 12 / 12 |
 
-Total 1,197 of 1,208 (99.1%). Decoding ran about 66 times faster than real time on one CPU core (1,012 seconds of audio in 35 seconds for this run, which decodes clips several times).
+Total 1,197 of 1,208 (99.1%). Speed, one measured run on a single decoding process: 1,208 decodes, 2,337 seconds of audio, 33.7 seconds, about 69 times faster than real time.
 
 What this does not tell you:
 
@@ -53,7 +53,7 @@ What this does not tell you:
 - Reading the question aloud uses the device's own text-to-speech voice. If a phone has no Hindi voice, the question is only on the screen. This has not been checked on real phones.
 - No real accounts. A nickname is the login, so anyone can practise as someone else's nickname. The teacher page has a PIN.
 - Answers are whole numbers up to 9,999. Addition, subtraction and multiplication only. No division, fractions or word problems.
-- One server process. At most 8 microphone sessions at once (2 per address, 15 seconds each), SQLite on a Docker volume, no backup.
+- One server process. At most 8 microphone sessions at once (per address too, 15 seconds each), SQLite on a Docker volume, no backup. Behind a reverse proxy every device looks like one address unless you set `GINTI_TRUSTED_PROXY=1` and have the proxy set `X-Forwarded-For`; see [SECURITY.md](SECURITY.md).
 - The audio can be wrong. A child can be marked wrong because the app misheard. That is why the heard number is shown first and the redo button exists.
 
 ## Run the tests
@@ -64,11 +64,11 @@ python scripts/fetch_models.py models
 GINTI_MODEL_DIR=models python -m pytest -q tests
 ```
 
-83 tests: number round trips for 0 to 9,999 in both languages, the question engine, the database, every API route including bad input and the PIN lockout, and recognition of recorded fixtures. Tests that need the speech models skip themselves if the models are missing.
+86 tests: number round trips for 0 to 9,999 in both languages, the question engine, the database, every API route including bad input and the PIN lockout, and recognition of recorded fixtures. Tests that need the speech models skip themselves if the models are missing.
 
 `scripts/e2e_browser.py` drives the real page in Chrome and plays prerecorded clips into its microphone path, so the whole chain (stream, worklet, WebSocket, recogniser, scoring, feedback) is exercised. One 10-question round with synthetic English clips scored 10 of 10 in the last run. Those clips are recorded, not live speech.
 
-CI builds the image with `docker compose up`, waits for it to be healthy and runs `scripts/smoke.py` against it.
+CI runs `docker compose up --build --wait` and then `scripts/smoke.py` against the running container.
 
 ## Layout
 
@@ -79,8 +79,12 @@ app/engine.py    question choice, difficulty, spaced repetition
 app/store.py     SQLite: learners, attempts, boxes, levels
 app/main.py      HTTP API, WebSocket, security headers, teacher routes
 app/static/      the pages (plain HTML, CSS and JavaScript, no build step)
-scripts/         model download, test-audio maker, benchmark, smoke test, browser run
+scripts/         model download, test-audio maker, benchmark, stress check, smoke test, browser run, demo recorder
 ```
+
+## How it was built
+
+Written from scratch on 27 November 2026 for this hackathon, by one person. The repository started private, so the first public history is short: the first commit holds most of the app (server, speech, engine, pages) and the following commits are fixes made after review rounds: front end races, security limits, honest benchmark, docs and the deck. The commit times are the real times. Models are third party (Vosk, Apache 2.0) and are downloaded at build time, not part of the code.
 
 ## Licence
 
