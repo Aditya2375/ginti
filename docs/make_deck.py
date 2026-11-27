@@ -177,7 +177,7 @@ def screens(c):
         c.drawImage(im, x, 130, width=min(w, 430), height=h if w < 430 else 430 * ih / iw)
         c.setFillColor(INK); c.setFont("Body", 13); c.drawString(40 + i * 450, 100, cap)
     c.setFillColor(MUTED); c.setFont("Body", 12)
-    c.drawString(40, 60, "Screenshots of the running app in Chrome with test data. In the child screen the "Listening" line was set by hand, because the capture machine has no microphone.")
+    c.drawString(40, 60, "Screenshots of the running app in Chrome with test data. In the child screen the Listening line was set by hand, because the capture machine has no microphone.")
 
 
 def draw(c, s, n):
