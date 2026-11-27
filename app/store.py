@@ -81,10 +81,15 @@ class Store:
                 rows = self._db.execute(
                     "SELECT * FROM progress WHERE learner_id=? AND topic IN ('add','sub','mul')", (lid,)).fetchall()
                 return {"level": min(r["level"] for r in rows), "streak": 0, "misses": 0,
-                        "served": sum(r["served"] for r in rows)}
-            return dict(self._db.execute(
+                        "served": self._served_total(lid)}
+            d = dict(self._db.execute(
                 "SELECT level,streak,misses,served FROM progress WHERE learner_id=? AND topic=?",
                 (lid, topic)).fetchone())
+            d["served"] = self._served_total(lid)       # one counter for every topic, so mix and single topics agree
+            return d
+
+    def _served_total(self, lid: int) -> int:
+        return self._db.execute("SELECT COALESCE(SUM(served),0) FROM progress WHERE learner_id=?", (lid,)).fetchone()[0]
 
     def boxes(self, lid: int) -> dict[str, dict]:
         with self._lock:
@@ -103,11 +108,12 @@ class Store:
                     (lid, time.time(), topic, fact, expected, heard, int(correct), ms, mode, int(skipped)))
                 p = self._db.execute("SELECT * FROM progress WHERE learner_id=? AND topic=?", (lid, topic)).fetchone()
                 served = p["served"] + 1
+                total = self._served_total(lid) + 1          # box timing uses the all-topic counter
                 b = self._db.execute("SELECT box FROM boxes WHERE learner_id=? AND fact=?", (lid, fact)).fetchone()
                 self._db.execute(
                     "INSERT INTO boxes(learner_id,fact,box,last_served) VALUES(?,?,?,?)"
                     " ON CONFLICT(learner_id,fact) DO UPDATE SET box=excluded.box,last_served=excluded.last_served",
-                    (lid, fact, update_box(b["box"] if b else 0, correct), served))
+                    (lid, fact, update_box(b["box"] if b else 0, correct), total))
                 if skipped:
                     level, streak, misses = p["level"], 0, p["misses"]   # a skip does not lower the level
                 else:

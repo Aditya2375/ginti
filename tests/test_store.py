@@ -57,3 +57,11 @@ def test_no_audio_or_personal_columns(st):
     cols = {r[1] for t in ("learners", "attempts", "progress", "boxes")
             for r in st._db.execute(f"PRAGMA table_info({t})")}
     assert not cols & {"audio", "email", "phone", "surname", "address", "wav", "pcm"}
+
+
+def test_mix_and_single_topics_share_one_served_counter(st):
+    l = st.learner("Mina", "en")["id"]
+    st.record(l, "add", "1+1", 2, 2, True, 500, "voice")
+    st.record(l, "mul", "2x3", 6, 6, True, 500, "voice")
+    assert st.progress(l, "mix")["served"] == st.progress(l, "add")["served"] == st.progress(l, "mul")["served"] == 2
+    assert st.boxes(l)["2x3"]["last_served"] == 2
