@@ -79,3 +79,9 @@ def test_silence_is_not_an_answer():
     eng = Engine(MODELS)
     h = eng.recognise_pcm(b"\0" * 32000, "en", 0, 100)
     assert h.value is None and h.command is None
+
+
+def test_english_and_is_accepted_in_the_grammar_and_the_parser():
+    assert "and" in json.loads(build_grammar("en", 0, 1000))
+    assert interpret("one hundred and five", "en").value == 105
+    assert interpret("one hundred and five", "en").text == "one hundred and five"

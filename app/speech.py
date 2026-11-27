@@ -42,8 +42,6 @@ def _grammar_words(lang: str, lo: int, hi: int) -> list[str]:
     words: set[str] = set()
     for n in range(lo, hi + 1):
         words.update(to_words(n).split())
-    if lang == "en":
-        words.discard("and")
     words.update(COMMAND_WORDS[lang].values())
     return sorted(words)
 
