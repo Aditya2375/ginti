@@ -4,6 +4,7 @@ Everything in the deck about the product is something the code and tests in this
 Numbers come from README.md (benchmark) and from the sources listed on the last slide.
 """
 
+import os
 import sys
 
 from reportlab.lib import colors
@@ -11,6 +12,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import Frame, KeepInFrame, Paragraph, Table, TableStyle
 
 pdfmetrics.registerFont(TTFont("Body", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
@@ -26,8 +28,8 @@ cellb = ParagraphStyle("cb", parent=cell, fontName="Bold")
 SLIDES = []
 
 
-def slide(title, items=None, table=None, widths=None, note=None, size=None):
-    SLIDES.append(dict(title=title, items=items or [], table=table, widths=widths, note=note, size=size))
+def slide(title, items=None, table=None, widths=None, note=None, size=None, extra=None):
+    SLIDES.append(dict(title=title, items=items or [], table=table, widths=widths, note=note, size=size, extra=extra))
 
 
 slide("Ginti: maths you answer out loud",
@@ -69,14 +71,17 @@ slide("How it works",
       ["Browser: captures the microphone, converts it to 16 kHz mono audio and streams it over a WebSocket.",
        "Server (Python, FastAPI): decodes the audio with Vosk, an open-source offline recogniser, using its small Hindi and Indian-English models.",
        "For each question the recogniser is restricted to the words needed for plausible answers plus two commands. For 3 + 4 the answer can only be a number up to 20, so a similar-sounding word like <b>saath</b> (60) cannot replace <b>saat</b> (7).",
-       "A parser turns the words into a number. Anything unclean, like \"seven eight\", counts as not heard. The app never guesses.",
-       "The server holds the correct answer. The browser never receives it."], size=20)
+       "A parser turns the words into a number. Unclean input, like \"seven eight\", counts as not heard. The recogniser can still mishear a clean word as another valid number, so the child sees what was heard first.",
+       "The server holds the correct answer and does the scoring, so the browser cannot mark itself right."], size=20)
+slide("Pipeline", extra="pipeline")
+slide("What it looks like", extra="screens")
 
 slide("Evidence so far",
       table=[["Check", "Result"],
-             ["Recognition on 508 synthetic clips (two voices per language)", "502 of 508 correct (98.8%). Hindi 0 to 99: 200/200. English 0 to 99: 198/200. Hindi 100 to 999: 46/50"],
-             ["Speed", "About 66 times faster than real time on one CPU core (1,012 s of audio in 15 s)"],
-             ["Automated tests", "78 tests: numbers, question engine, database, every API route and its bad-input cases, fixture audio"],
+             ["508 synthetic clips (two voices per language), each decoded in every answer band the app can assign: 1,208 results", "1,197 correct (99.1%). Hindi 0 to 99: 532/536, Hindi 100 to 999: 52/56. English 0 to 99: 533/536, 100 to 999: 56/56. Known miss: Hindi 7 heard as 60 in wide bands"],
+             ["Stress, 33 fixture clips (80 results)", "Clean 77, pitch +40%: 65, noise 10 dB: 73, noise 0 dB: 56. Synthetic, crude"],
+             ["Speed", "About 66 times faster than real time on one CPU core (1,012 s of audio in 15 s, one decode per clip)"],
+             ["Automated tests", "83 tests: numbers, question engine, database, every API route and its bad-input cases, fixture audio"],
              ["Browser run", "One 10-question round in Chrome with recorded clips played into the microphone path: 10 of 10 scored right"],
              ["Docker", "CI builds the image, starts it with docker compose up, and recognises a spoken answer through it"]],
       widths=[330, 580])
@@ -132,6 +137,45 @@ slide("Sources",
        "Benchmark, tests and source: github.com/Aditya2375/ginti (README.md, scripts/bench_asr.py)"], size=16)
 
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def pipeline(c):
+    steps = [("Child's browser", "microphone, 16 kHz audio, worklet"), ("WebSocket", "audio frames, 15 s limit, 2 per address"),
+             ("Vosk (offline)", "grammar for this sum + 2 commands"), ("Number parser", "Hindi, Roman Hindi, English"),
+             ("Server scores", "SQLite: attempt, box, level"), ("Spoken feedback", "device voice, teacher page")]
+    bw, bh, gap, y = 135, 110, 20, 270
+    x = 40
+    for i, (a, b) in enumerate(steps):
+        c.setFillColor(colors.white); c.setStrokeColor(GREEN); c.setLineWidth(2)
+        c.roundRect(x, y, bw, bh, 8, fill=1, stroke=1)
+        c.setFillColor(INK); c.setFont("Bold", 13); c.drawCentredString(x + bw / 2, y + bh - 28, a)
+        c.setFillColor(MUTED); c.setFont("Body", 10)
+        words, line, ly = b.split(), "", y + bh - 52
+        for w in words:
+            if c.stringWidth(line + " " + w, "Body", 10) > bw - 14:
+                c.drawCentredString(x + bw / 2, ly, line.strip()); line, ly = "", ly - 14
+            line += " " + w
+        c.drawCentredString(x + bw / 2, ly, line.strip())
+        if i < len(steps) - 1:
+            c.setStrokeColor(GREEN); c.line(x + bw, y + bh / 2, x + bw + gap, y + bh / 2)
+            c.line(x + bw + gap - 6, y + bh / 2 + 4, x + bw + gap, y + bh / 2); c.line(x + bw + gap - 6, y + bh / 2 - 4, x + bw + gap, y + bh / 2)
+        x += bw + gap
+    c.setFillColor(INK); c.setFont("Body", 15)
+    c.drawString(40, 215, "No audio is written to disk. No outside service is called at run time.")
+    c.drawString(40, 190, "The server alone holds the right answer. The browser sends what was said.")
+    c.drawString(40, 165, "Runs as one container: docker compose up. Models are fetched at image build, pinned by SHA-256.")
+
+
+def screens(c):
+    for i, (img, cap) in enumerate([("child.png", "Child screen: sum, hear again, speak, or type"), ("teacher.png", "Teacher page: per-learner accuracy, time, level")]):
+        x = 40 + i * 450
+        c.drawImage(ImageReader(os.path.join(HERE, "img", img)), x, 95, width=430, height=430 * 370 / 780)
+        c.setFillColor(INK); c.setFont("Body", 13); c.drawString(x, 75, cap)
+    c.setFillColor(MUTED); c.setFont("Body", 12)
+    c.drawString(40, 50, "Screenshots from the running app in Chrome with test data. The microphone emoji is missing here because the capture machine has no emoji font.")
+
+
 def draw(c, s, n):
     c.setFillColor(CREAM); c.rect(0, 0, W, H, fill=1, stroke=0)
     c.setFillColor(GREEN); c.rect(0, H - 78, W, 78, fill=1, stroke=0)
@@ -149,6 +193,10 @@ def draw(c, s, n):
         flow.append(t)
     if s["note"]:
         flow.append(Paragraph(s["note"], small))
+    if s["extra"] == "pipeline":
+        return pipeline(c)
+    if s["extra"] == "screens":
+        return screens(c)
     f = Frame(40, 40, W - 80, H - 78 - 60, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0, showBoundary=0)
     f.addFromList([KeepInFrame(W - 80, H - 78 - 60, flow, mode="error")], c)
 
