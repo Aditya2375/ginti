@@ -223,12 +223,32 @@ def test_one_learner_cannot_crowd_out_others(client):
     assert r.status_code == 200, "Binu's open question must survive Asha asking many"
 
 
-def test_question_and_learner_rate_limits(client):
+def test_question_and_learner_rate_limits(client, monkeypatch):
+    import app.main as m
+    monkeypatch.setattr(m, "RATE", {**m.RATE, "question": 40, "learners": 10})
     l = make(client)
-    codes = [client.post("/api/question", json={"learner_id": l["id"], "topic": "add"}).status_code for _ in range(100)]
+    codes = [client.post("/api/question", json={"learner_id": l["id"], "topic": "add"}).status_code for _ in range(60)]
     assert codes.count(429) >= 1 and codes[0] == 200
-    codes = [client.post("/api/learners", json={"nickname": f"kid{i}", "lang": "en"}).status_code for i in range(30)]
+    codes = [client.post("/api/learners", json={"nickname": f"kid{i}", "lang": "en"}).status_code for i in range(20)]
     assert 429 in codes
+
+
+def test_a_shared_proxy_address_is_split_by_forwarded_for(tmp_path, monkeypatch):
+    import app.main as m
+    monkeypatch.setattr(m, "TRUSTED_PROXY", True)
+    monkeypatch.setattr(m, "RATE", {**m.RATE, "learners": 3})
+    s = Settings(); s.db_path = str(tmp_path / "p.db"); s.teacher_pin = "1"
+    c = TestClient(create_app(s, FakeEngine()))
+    for i in range(6):   # six different clients behind one proxy, each within its own limit
+        r = c.post("/api/learners", json={"nickname": f"k{i}", "lang": "en"}, headers={"x-forwarded-for": f"10.0.0.{i}"})
+        assert r.status_code == 200
+
+
+def test_bad_websocket_settings_close_cleanly(client):
+    for bad in ("null", "5", "[1]", '{"lang":"en","lo":1e999}', '{"lang":"en","lo":true,"hi":5}'):
+        with client.websocket_connect("/ws/listen") as w:
+            w.send_text(bad)
+            assert w.receive_json()["type"] == "error"
 
 
 def test_language_is_not_changed_by_a_later_login(client):
@@ -236,7 +256,9 @@ def test_language_is_not_changed_by_a_later_login(client):
     assert make(client, "Asha", "en")["lang"] == "hi"
 
 
-def test_websocket_cap_per_address(client):
+def test_websocket_cap_per_address(client, monkeypatch):
+    import app.main as m
+    monkeypatch.setattr(m, "MAX_SOCKETS_PER_IP", 2)
     from starlette.websockets import WebSocketDisconnect
     with client.websocket_connect("/ws/listen") as w1, client.websocket_connect("/ws/listen") as w2:
         with pytest.raises(WebSocketDisconnect):

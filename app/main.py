@@ -31,12 +31,13 @@ from .store import BadNickname, Store
 log = logging.getLogger("ginti")
 STATIC = Path(__file__).parent / "static"
 MAX_SOCKETS = 8
-MAX_SOCKETS_PER_IP = 2
+MAX_SOCKETS_PER_IP = 8
 SESSION_SECONDS = 15          # one answer never needs longer; a socket cannot be held open past this
 PENDING_PER_LEARNER = 3
+TRUSTED_PROXY = os.environ.get("GINTI_TRUSTED_PROXY", "") == "1"   # take the client address from X-Forwarded-For
 PIN_FAIL_LIMIT = 8
 PIN_TRACKED_IPS = 10000
-RATE = {"question": 90, "learners": 20}   # requests per minute per client address
+RATE = {"question": 600, "learners": 200, "answer": 600, "recognise": 60}   # requests per minute per client address
 PENDING_TTL = 30 * 60
 PENDING_MAX = 5000
 FRAME_MAX = 64 * 1024
@@ -106,8 +107,17 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         return resp
 
     # ---------------------------------------------------------------- basics
+    def _addr(client, headers) -> str:
+        """Client address. Behind a reverse proxy every request shares the proxy's address, so with
+        GINTI_TRUSTED_PROXY=1 use the last X-Forwarded-For entry (the one the proxy added)."""
+        if TRUSTED_PROXY:
+            fwd = headers.get("x-forwarded-for", "").split(",")[-1].strip()
+            if fwd:
+                return fwd
+        return client.host if client else "?"
+
     def _ip(request: Request) -> str:
-        return request.client.host if request.client else "?"
+        return _addr(request.client, request.headers)
 
     def _rate(request: Request, bucket: str) -> None:
         q = hits[(_ip(request), bucket)]
@@ -121,9 +131,13 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
             for k in [k for k, v in hits.items() if not v or v[-1] < now - 60]:
                 del hits[k]
 
+    health_cache = {"t": 0.0, "body": None}
+
     @app.get("/api/health")
     async def health():
         """ok is true only if every installed model really loads and builds a recogniser."""
+        if health_cache["body"] is not None and time.time() - health_cache["t"] < 10:
+            return health_cache["body"]
         status = {}
         for lang in ("hi", "en"):
             if not speech.available(lang):
@@ -134,7 +148,9 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
                 status[lang] = True
             except Exception:
                 status[lang] = False
-        return {"ok": any(status.values()), "version": __version__, "speech": status}
+        body = {"ok": any(status.values()), "version": __version__, "speech": status}
+        health_cache.update(t=time.time(), body=body)
+        return body
 
     @app.post("/api/learners")
     def learners(body: Learner, request: Request):
@@ -189,7 +205,8 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         return item[1]
 
     @app.post("/api/answer")
-    def answer(body: AnswerReq):
+    def answer(body: AnswerReq, request: Request):
+        _rate(request, "answer")
         l = _learner(body.learner_id)
         q = _take(l["id"], body.qid)
         heard = parse_number(body.text, l["lang"])
@@ -198,7 +215,8 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         return {"correct": correct, "heard": heard, "expected": q.answer, **res}
 
     @app.post("/api/skip")
-    def skip(body: SkipReq):
+    def skip(body: SkipReq, request: Request):
+        _rate(request, "answer")
         l = _learner(body.learner_id)
         q = _take(l["id"], body.qid)
         res = store.record(l["id"], q.topic, q.key, q.answer, None, False, None, "voice", skipped=True)
@@ -213,6 +231,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     @app.post("/api/recognise")
     async def recognise(request: Request, lang: str = "hi", lo: int = 0, hi: int = 100):
         """One short WAV (16 kHz, mono, 16-bit) in, one heard answer out."""
+        _rate(request, "recognise")
         if lang not in ("hi", "en"):
             raise HTTPException(422, "lang must be hi or en")
         lo, hi = _range(lo, hi)
@@ -249,7 +268,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         if ws.headers.get("origin") and not _same_origin(ws):
             await ws.close(code=1008)
             return
-        ip = ws.client.host if ws.client else "?"
+        ip = _addr(ws.client, ws.headers)
         if sockets["n"] >= MAX_SOCKETS or per_ip[ip] >= MAX_SOCKETS_PER_IP:
             await ws.close(code=1013)
             return
@@ -266,9 +285,13 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
             return r
         try:
             cfgmsg = json.loads(await asyncio.wait_for(ws.receive_text(), min(10, left())))
+            if not isinstance(cfgmsg, dict):
+                await ws.send_json({"type": "error", "message": "bad settings"})
+                return
             lang = cfgmsg.get("lang")
-            lo, hi = int(cfgmsg.get("lo", 0)), int(cfgmsg.get("hi", 100))
-            if lang not in ("hi", "en") or not (0 <= lo <= hi <= 9999):
+            lo, hi = cfgmsg.get("lo", 0), cfgmsg.get("hi", 100)
+            if (lang not in ("hi", "en") or not isinstance(lo, int) or not isinstance(hi, int)
+                    or isinstance(lo, bool) or isinstance(hi, bool) or not (0 <= lo <= hi <= 9999)):
                 await ws.send_json({"type": "error", "message": "bad settings"})
                 return
             try:
@@ -292,11 +315,12 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
                         if out["type"] == "final":
                             return
                 elif msg.get("text") is not None:
-                    if json.loads(msg["text"]).get("type") == "stop":
+                    ctl = json.loads(msg["text"])
+                    if isinstance(ctl, dict) and ctl.get("type") == "stop":
                         h = await run_in_threadpool(session.finish)
                         await ws.send_json({"type": "final", "text": h.text, "value": h.value, "command": h.command})
                         return
-        except (WebSocketDisconnect, asyncio.TimeoutError, json.JSONDecodeError, ValueError, TypeError):
+        except (WebSocketDisconnect, asyncio.TimeoutError, json.JSONDecodeError, ValueError, TypeError, AttributeError, OverflowError):
             pass
         except RuntimeError:
             pass
