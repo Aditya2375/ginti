@@ -4,8 +4,8 @@ Everything here is plain tables and string handling. It turns what the
 recogniser heard (or what a child typed) into an integer, and turns an
 integer into words that a speech synthesiser can read out.
 
-Hindi numbers 1 to 99 are all different words, with no pattern a rule could
-generate, so they are written out in full.
+Hindi number words from 1 to 99 are mostly irregular, so they are in a
+written-out table instead of a rule.
 """
 
 from __future__ import annotations
